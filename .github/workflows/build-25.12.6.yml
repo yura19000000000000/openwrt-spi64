@@ -17,8 +17,10 @@ jobs:
 
       - name: Clone OpenWrt v25.12.6
         run: |
-          REPO_URL="https://github.com"
-          git clone --depth 1 -b v25.12.6 "$REPO_URL" openwrt
+          HOST="github.com"
+          ORG="openwrt"
+          REPO="openwrt.git"
+          git clone --depth 1 -b v25.12.6 "https://${HOST}/${ORG}/${REPO}" openwrt
 
       - name: Create DTSI, DTS, Makefile and Network config
         working-directory: openwrt
@@ -267,5 +269,6 @@ jobs:
         with:
           name: openwrt-25.12.6-beeline-sbtplus-spi64
           path: openwrt/bin/targets/ramips/mt7621/*sysupgrade.bin
+
 
 

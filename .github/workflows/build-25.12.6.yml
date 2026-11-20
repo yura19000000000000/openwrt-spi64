@@ -17,7 +17,7 @@ jobs:
 
       - name: Clone OpenWrt source
         run: |
-          git clone --depth 1 -b openwrt-24.10 https://github.com openwrt
+          git clone --depth 1 -b v25.12.6 https://github.com openwrt
 
       - name: Create DTSI, DTS, Makefile and Network config
         working-directory: openwrt

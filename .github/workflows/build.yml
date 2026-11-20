@@ -60,6 +60,3 @@ jobs:
         with:
           name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
-
-
-

@@ -25,23 +25,49 @@ jobs:
           REPO="openwrt.git"
           git clone --depth 1 -b v25.12.6 "https://${HOST}/${ORG}/${REPO}" openwrt
 
+      - name: Clone custom LuCI apps (gSpotx2f)
+        run: |
+          HOST="github.com"
+          DEV="gSpotx2f"
+          mkdir -p openwrt/package/custom
+          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-disks-info.git" openwrt/package/custom/luci-app-disks-info
+          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-cpu-status.git" openwrt/package/custom/luci-app-cpu-status
+          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-temp-status.git" openwrt/package/custom/luci-app-temp-status
+
       - name: Update and install feeds
         working-directory: openwrt
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Inject custom DTS and device profile
+      - name: Inject custom DTS, device profile and fantastic-packages repo
         run: |
           cp -v target/linux/ramips/dts/mt7621_beeline_sbtplus.dtsi openwrt/target/linux/ramips/dts/
           cp -v target/linux/ramips/dts/mt7621_beeline_sbtplusspi.dts openwrt/target/linux/ramips/dts/
           echo "" >> openwrt/target/linux/ramips/image/mt7621.mk
           cat target/linux/ramips/image/beeline_sbtplusspi.mk >> openwrt/target/linux/ramips/image/mt7621.mk
 
-      - name: Apply .config and expand
+          mkdir -p openwrt/files/etc/apk/repositories.d
+          mkdir -p openwrt/files/etc/apk/keys
+          FP_BASE="https://github.io"
+          cat << EOF > openwrt/files/etc/apk/repositories.d/customfeeds.list
+          ${FP_BASE}/packages/packages.adb
+          ${FP_BASE}/luci/packages.adb
+          ${FP_BASE}/special/packages.adb
+          EOF
+
+          KEY_URL="https://githubusercontent.com"
+          wget -qO openwrt/files/etc/apk/keys/fantastic-packages.pem "${KEY_URL}/fantastic-packages.pem" || true
+
+      - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |
-          cp ../.config .config
+          CFG_URL="https://openwrt.org"
+          wget -O .config "${CFG_URL}"
+          # Сбрасываем выбор всех стандартных роутеров, оставляя все настройки ядра и kmod
+          sed -i 's/^CONFIG_TARGET_ramips_mt7621_DEVICE_.*=y/# & is not set/' .config
+          # Добавляем ваш роутер и ваш список пакетов поверх официального конфига
+          cat ../.config >> .config
           make defconfig
 
       - name: Download sources

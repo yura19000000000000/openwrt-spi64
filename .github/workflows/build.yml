@@ -3,11 +3,6 @@ name: Build OpenWrt 25.12.6 (Beeline SBT+ SPI 64)
 on:
   workflow_dispatch:
 
-env:
-  OPENWRT_TAG: v25.12.6
-  REPO_OWNER: openwrt
-  REPO_NAME: openwrt.git
-
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -25,7 +20,10 @@ jobs:
 
       - name: Clone OpenWrt v25.12.6
         run: |
-          git clone --depth 1 --branch ${{ env.OPENWRT_TAG }} https://github.com{{ env.REPO_OWNER }}/${{ env.REPO_NAME }} openwrt
+          HOST="github.com"
+          ORG="openwrt"
+          REPO="openwrt.git"
+          git clone --depth 1 -b v25.12.6 "https://${HOST}/${ORG}/${REPO}" openwrt
 
       - name: Update and install feeds
         working-directory: openwrt
@@ -62,5 +60,6 @@ jobs:
         with:
           name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
+
 
 

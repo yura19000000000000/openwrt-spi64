@@ -157,5 +157,3 @@ jobs:
         with:
           name: openwrt-25.12.6-beeline-sbtplus-spi64
           path: openwrt/bin/targets/ramips/mt7621/*sysupgrade.bin
-
-

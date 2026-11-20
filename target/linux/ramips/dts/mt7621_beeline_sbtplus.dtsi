@@ -1,82 +1,96 @@
 // SPDX-License-Identifier: GPL-2.0
 
-#include "mt7621_beeline_sbtplus.dtsi"
+#include "mt7621.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
-	compatible = "beeline,sbtplusspi", "mediatek,mt7621-soc";
-	model = "Smart Box Turbo+ SPI 64";
-};
+	aliases {
+		led-boot = &led_power;
+		led-failsafe = &led_power;
+		led-running = &led_power;
+		led-upgrade = &led_power;
+		label-mac-device = &gmac0;
+	};
 
-&spi0 {
-	status = "okay";
+	chosen {
+		bootargs = "console=ttyS0,57600";
+	};
 
-	m25p80@0 {
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <40000000>;
+	leds {
+		compatible = "gpio-leds";
 
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
+		led_power: power {
+			label = "green:power";
+			gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
+		};
 
-			partition@0 {
-				label = "bootloader";
-				reg = <0x0 0x30000>;
-				read-only;
-			};
+		usb {
+			label = "blue:usb";
+			gpios = <&gpio 13 GPIO_ACTIVE_HIGH>;
+			trigger-sources = <&xhci_ehci_port1>, <&ehci_port2>;
+			linux,default-trigger = "usbport";
+		};
 
-			partition@30000 {
-				label = "config";
-				reg = <0x30000 0x10000>;
-				read-only;
-			};
+		wifi {
+			label = "red:wifi";
+			gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
+		};
+	};
 
-			factory: partition@40000 {
-				label = "factory";
-				reg = <0x40000 0x10000>;
-				read-only;
-			};
+	gpio-export {
+		compatible = "gpio-export";
 
-			firmware: partition@50000 {
-				compatible = "denx,uimage";
-				label = "firmware";
-				reg = <0x50000 0x3fb0000>;
-			};
+		usb-power {
+			gpio-export,name = "usb-power";
+			gpio-export,output = <1>;
+			gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <20>;
+
+		reset {
+			label = "reset";
+			gpios = <&gpio 14 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
+		};
+		wps {
+			label = "wps";
+			gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_WPS_BUTTON>;
 		};
 	};
 };
 
-&gmac0 {
-	mac-address = [74 9d 79 76 2d 63];
+&pcie {
+	status = "okay";
 };
 
-&switch0 {
-	ports {
-		port@0 {
-			status = "okay";
-			label = "wan";
-			mac-address = [74 9d 79 76 2d 64];
-		};
+&pcie0 {
+	wifi@0,0 {
+		compatible = "mediatek,mt76";
+		reg = <0x0 0 0 0 0>;
+		mediatek,mtd-eeprom = <&factory 0x8000>;
+		ieee80211-freq-limit = <5000000 6000000>;
+	};
+};
 
-		port@1 {
-			status = "okay";
-			label = "lan1";
-		};
+&pcie1 {
+	wifi@0,0 {
+                compatible = "mediatek,mt76";
+		reg = <0x0 0 0 0 0>;
+		mediatek,mtd-eeprom = <&factory 0x0>;
+		ieee80211-freq-limit = <2400000 2500000>;
+	};
+};
 
-		port@2 {
-			status = "okay";
-			label = "lan2";
-		};
-
-		port@3 {
-			status = "okay";
-			label = "lan3";
-		};
-
-		port@4 {
-			status = "okay";
-			label = "lan4";
-		};
+&state_default {
+	gpio {
+		groups = "uart2", "uart3", "wdt";
+		function = "gpio";
 	};
 };

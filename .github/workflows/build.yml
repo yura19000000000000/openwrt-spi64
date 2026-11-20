@@ -58,7 +58,7 @@ jobs:
           EOF
 
           RAW_HOST="://githubusercontent.com"
-          KEY_PATH="fantastic-packages/fantastic-keyring/master/files/etc/apk/keys/fantastic-packages.pem"
+          KEY_PATH="fantastic-packages/fantastic-keyring/main/files/etc/apk/keys/fantastic-packages.pem"
           wget -qO openwrt/files/etc/apk/keys/fantastic-packages.pem "https://${RAW_HOST}/${KEY_PATH}" || true
 
       - name: Apply official config.buildinfo + custom .config
@@ -87,4 +87,5 @@ jobs:
         with:
           name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
+
 

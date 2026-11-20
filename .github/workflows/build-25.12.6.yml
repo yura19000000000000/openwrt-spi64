@@ -22,125 +22,27 @@ jobs:
           REPO="openwrt.git"
           git clone --depth 1 -b v25.12.6 "https://${HOST}/${ORG}/${REPO}" openwrt
 
-      - name: Create DTSI, DTS, Makefile and Network config
+      - name: Configure DTS, Makefile and LEDs (SPI 64MB + Breed)
         working-directory: openwrt
         run: |
-          # 1. Создаем mt7621_beeline_sbtplus.dtsi
-          cat << 'EOF' > target/linux/ramips/dts/mt7621_beeline_sbtplus.dtsi
-          // SPDX-License-Identifier: GPL-2.0
-
-          #include "mt7621.dtsi"
-
-          #include <dt-bindings/gpio/gpio.h>
-          #include <dt-bindings/input/input.h>
-          #include <dt-bindings/leds/common.h>
-
-          / {
-          	aliases {
-          		led-boot = &led_power;
-          		led-failsafe = &led_power;
-          		led-running = &led_power;
-          		led-upgrade = &led_power;
-          		label-mac-device = &gmac0;
-          	};
-
-          	chosen {
-          		bootargs = "console=ttyS0,57600";
-          	};
-
-          	leds {
-          		compatible = "gpio-leds";
-
-          		led_power: power {
-          			label = "green:power";
-          			color = <LED_COLOR_ID_GREEN>;
-          			function = LED_FUNCTION_POWER;
-          			gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
-          		};
-
-          		usb {
-          			label = "blue:usb";
-          			color = <LED_COLOR_ID_BLUE>;
-          			function = LED_FUNCTION_USB;
-          			gpios = <&gpio 13 GPIO_ACTIVE_HIGH>;
-          			trigger-sources = <&xhci_ehci_port1>, <&ehci_port2>;
-          			linux,default-trigger = "usbport";
-          		};
-
-          		wifi {
-          			label = "red:wifi";
-          			color = <LED_COLOR_ID_RED>;
-          			function = LED_FUNCTION_WLAN;
-          			gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
-          		};
-          	};
-
-          	gpio-export {
-          		compatible = "gpio-export";
-
-          		usb-power {
-          			gpio-export,name = "usb-power";
-          			gpio-export,output = <1>;
-          			gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
-          		};
-          	};
-
-          	keys {
-          		compatible = "gpio-keys";
-
-          		reset {
-          			label = "reset";
-          			gpios = <&gpio 14 GPIO_ACTIVE_LOW>;
-          			linux,code = <KEY_RESTART>;
-          		};
-
-          		wps {
-          			label = "wps";
-          			gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
-          			linux,code = <KEY_WPS_BUTTON>;
-          		};
-          	};
-          };
-
-          &pcie {
-          	status = "okay";
-          };
-
-          &pcie0 {
-          	wifi@0,0 {
-          		compatible = "mediatek,mt76";
-          		reg = <0x0 0 0 0 0>;
-          		mediatek,mtd-eeprom = <&factory 0x8000>;
-          		ieee80211-freq-limit = <5000000 6000000>;
-          	};
-          };
-
-          &pcie1 {
-          	wifi@0,0 {
-          		compatible = "mediatek,mt76";
-          		reg = <0x0 0 0 0 0>;
-          		mediatek,mtd-eeprom = <&factory 0x0>;
-          		ieee80211-freq-limit = <2400000 2500000>;
-          	};
-          };
-
-          &state_default {
-          	gpio {
-          		groups = "uart2", "uart3", "wdt";
-          		function = "gpio";
-          	};
-          };
-          EOF
-
-          # 2. Создаем mt7621_beeline_sbtplusspi.dts
+          # 1. Создаем DTS на базе официального mt7621_sercomm_s3.dtsi (с правильными метками &gmac0, &wan, &wlan_2g, &wlan_5g)
           cat << 'EOF' > target/linux/ramips/dts/mt7621_beeline_sbtplusspi.dts
-          // SPDX-License-Identifier: GPL-2.0
+          // SPDX-License-Identifier: GPL-2.0-or-later
 
-          #include "mt7621_beeline_sbtplus.dtsi"
+          #include "mt7621_sercomm_s3.dtsi"
 
           / {
           	compatible = "beeline,sbtplusspi", "mediatek,mt7621-soc";
           	model = "Beeline Smart Box Turbo+ SPI 64";
+
+          	aliases {
+          		label-mac-device = &gmac0;
+          	};
+          };
+
+          &uartlite3 {
+          	status = "okay";
+          	current-speed = <57600>;
           };
 
           &spi0 {
@@ -150,6 +52,7 @@ jobs:
           		compatible = "jedec,spi-nor";
           		reg = <0>;
           		spi-max-frequency = <40000000>;
+          		broken-flash-reset;
 
           		partitions {
           			compatible = "fixed-partitions";
@@ -187,49 +90,34 @@ jobs:
           	mac-address = [74 9d 79 76 2d 63];
           };
 
-          &switch0 {
-          	ports {
-          		port@0 {
-          			status = "okay";
-          			label = "wan";
-          			mac-address = [74 9d 79 76 2d 64];
-          		};
+          &wan {
+          	mac-address = [74 9d 79 76 2d 64];
+          };
 
-          		port@1 {
-          			status = "okay";
-          			label = "lan1";
-          		};
+          &wlan_2g {
+          	mediatek,mtd-eeprom = <&factory 0x0>;
+          };
 
-          		port@2 {
-          			status = "okay";
-          			label = "lan2";
-          		};
-
-          		port@3 {
-          			status = "okay";
-          			label = "lan3";
-          		};
-
-          		port@4 {
-          			status = "okay";
-          			label = "lan4";
-          		};
-          	};
+          &wlan_5g {
+          	mediatek,mtd-eeprom = <&factory 0x8000>;
           };
           EOF
 
-          # 3. Добавляем профиль в mt7621.mk (с жесткой табуляцией)
+          # 2. Добавляем профиль устройства в mt7621.mk (с жесткой табуляцией)
           printf '\ndefine Device/beeline_sbtplusspi\n  $(Device/uimage-lzma-loader)\n  DEVICE_MODEL := Smart Box Turbo+ SPI 64\n  DEVICE_VENDOR := Beeline\n  IMAGE_SIZE := 65216k\n  DEVICE_PACKAGES := kmod-mt7603 kmod-mt7615e kmod-usb3 \\\n\tkmod-usb-ledtrig-usbport kmod-mt7615-firmware\nendef\nTARGET_DEVICES += beeline_sbtplusspi\n' >> target/linux/ramips/image/mt7621.mk
 
-          # 4. Регистрируем сетевые порты в 02_network
-          NET_FILE="target/linux/ramips/mt7621/base-files/etc/board.d/02_network"
-          if grep -q "beeline,smartbox-turbo-plus" "$NET_FILE"; then
-            sed -i 's/beeline,smartbox-turbo-plus/beeline,smartbox-turbo-plus|\\\n\tbeeline,sbtplusspi/' "$NET_FILE"
-          else
-            sed -i '/ramips_setup_interfaces()/a \	beeline,sbtplusspi)\n\t\tucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"\n\t\t;;' "$NET_FILE"
-          fi
+          # 3. Добавляем индикацию WAN в 01_leds по аналогии с официальным beeline,smartbox-turbo-plus
+          python3 -c '
+          path = "target/linux/ramips/mt7621/base-files/etc/board.d/01_leds"
+          with open(path, "r") as f:
+              data = f.read()
+          if "beeline,smartbox-turbo-plus" in data:
+              data = data.replace("beeline,smartbox-turbo-plus", "beeline,sbtplusspi|\\\nbeeline,smartbox-turbo-plus")
+          with open(path, "w") as f:
+              f.write(data)
+          '
 
-          # 5. Автоматическое включение русского языка LuCI при первом старте
+          # 4. Автоматическое включение русского языка LuCI при первом старте
           mkdir -p files/etc/uci-defaults
           cat << 'EOF' > files/etc/uci-defaults/99-custom-lang
           uci set luci.main.lang='ru'
@@ -269,6 +157,5 @@ jobs:
         with:
           name: openwrt-25.12.6-beeline-sbtplus-spi64
           path: openwrt/bin/targets/ramips/mt7621/*sysupgrade.bin
-
 
 

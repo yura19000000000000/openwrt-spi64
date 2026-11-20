@@ -5,6 +5,8 @@ on:
 
 env:
   OPENWRT_TAG: v25.12.6
+  REPO_OWNER: openwrt
+  REPO_NAME: openwrt.git
 
 jobs:
   build:
@@ -23,7 +25,7 @@ jobs:
 
       - name: Clone OpenWrt v25.12.6
         run: |
-          git clone --depth 1 --branch ${{ env.OPENWRT_TAG }} https://github.com openwrt
+          git clone --depth 1 --branch ${{ env.OPENWRT_TAG }} "https://github.com{REPO_OWNER}/${REPO_NAME}" openwrt
 
       - name: Update and install feeds
         working-directory: openwrt

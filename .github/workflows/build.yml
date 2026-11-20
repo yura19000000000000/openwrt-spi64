@@ -49,24 +49,25 @@ jobs:
 
           mkdir -p openwrt/files/etc/apk/repositories.d
           mkdir -p openwrt/files/etc/apk/keys
-          FP_BASE="https://github.io"
+          FP_HOST="fantastic-packages.github.io"
+          FP_PATH="releases/25.12/packages/mipsel_24kc"
           cat << EOF > openwrt/files/etc/apk/repositories.d/customfeeds.list
-          ${FP_BASE}/packages/packages.adb
-          ${FP_BASE}/luci/packages.adb
-          ${FP_BASE}/special/packages.adb
+          https://${FP_HOST}/${FP_PATH}/packages/packages.adb
+          https://${FP_HOST}/${FP_PATH}/luci/packages.adb
+          https://${FP_HOST}/${FP_PATH}/special/packages.adb
           EOF
 
-          KEY_URL="https://githubusercontent.com"
-          wget -qO openwrt/files/etc/apk/keys/fantastic-packages.pem "${KEY_URL}/fantastic-packages.pem" || true
+          RAW_HOST="://githubusercontent.com"
+          KEY_PATH="fantastic-packages/fantastic-keyring/master/files/etc/apk/keys/fantastic-packages.pem"
+          wget -qO openwrt/files/etc/apk/keys/fantastic-packages.pem "https://${RAW_HOST}/${KEY_PATH}" || true
 
       - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |
-          CFG_URL="https://openwrt.org"
-          wget -O .config "${CFG_URL}"
-          # Сбрасываем выбор всех стандартных роутеров, оставляя все настройки ядра и kmod
+          DL_HOST="downloads.openwrt.org"
+          CFG_PATH="releases/25.12.6/targets/ramips/mt7621/config.buildinfo"
+          wget -O .config "https://${DL_HOST}/${CFG_PATH}"
           sed -i 's/^CONFIG_TARGET_ramips_mt7621_DEVICE_.*=y/# & is not set/' .config
-          # Добавляем ваш роутер и ваш список пакетов поверх официального конфига
           cat ../.config >> .config
           make defconfig
 
@@ -86,3 +87,4 @@ jobs:
         with:
           name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
+

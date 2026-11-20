@@ -25,7 +25,7 @@ jobs:
 
       - name: Clone OpenWrt v25.12.6
         run: |
-          git clone --depth 1 --branch ${{ env.OPENWRT_TAG }} "https://github.com{REPO_OWNER}/${REPO_NAME}" openwrt
+          git clone --depth 1 --branch ${{ env.OPENWRT_TAG }} https://github.com{{ env.REPO_OWNER }}/${{ env.REPO_NAME }} openwrt
 
       - name: Update and install feeds
         working-directory: openwrt
@@ -62,4 +62,5 @@ jobs:
         with:
           name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
+
 

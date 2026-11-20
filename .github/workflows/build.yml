@@ -56,8 +56,9 @@ jobs:
           https://${FP_HOST}/${FP_PATH}/luci/packages.adb
           https://${FP_HOST}/${FP_PATH}/special/packages.adb
           EOF
-
-          RAW_HOST="://githubusercontent.com"
+         
+          SUB="raw"
+          RAW_HOST="${SUB}.githubusercontent.com"
           KEY_PATH="fantastic-packages/fantastic-keyring/main/files/etc/apk/keys/fantastic-packages.pem"
           wget -qO openwrt/files/etc/apk/keys/fantastic-packages.pem "https://${RAW_HOST}/${KEY_PATH}" || true
 

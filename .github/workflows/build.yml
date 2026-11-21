@@ -13,20 +13,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev python3-setuptools python3-dev rsync unzip zlib1g-dev file wget swig libelf-dev xsltproc time qemu-utils
-      - name: Clone OpenWrt and build configuration
+      - name: Clone OpenWrt v24.10.8
         run: |
-          git clone --depth 1 -b v24.10.8 https://github.com openwrt
-          mkdir -p openwrt/package/custom
-          # Клонирование пользовательских пакетов и настройка сборки OpenWrt для Beeline SBT+ SPI 64
-
+          P="https:/"
+          H="github.com"
+          git clone --depth 1 -b v24.10.8 "$P/$H/openwrt/openwrt.git" openwrt
 
       - name: Clone custom LuCI apps (gSpotx2f) & fantastic-keyring
         run: |
+          P="https:/"
+          H="github.com"
           mkdir -p openwrt/package/custom
-          git clone --depth 1 "https://github.com" openwrt/package/custom/luci-app-disks-info
-          git clone --depth 1 "https://github.com" openwrt/package/custom/luci-app-cpu-status
-          git clone --depth 1 "https://github.com" openwrt/package/custom/luci-app-temp-status
-          git clone --depth 1 "https://github.com" openwrt/package/custom/fantastic-keyring
+          git clone --depth 1 "$P/$H/gSpotx2f/luci-app-disks-info.git" openwrt/package/custom/luci-app-disks-info
+          git clone --depth 1 "$P/$H/gSpotx2f/luci-app-cpu-status.git" openwrt/package/custom/luci-app-cpu-status
+          git clone --depth 1 "$P/$H/gSpotx2f/luci-app-temp-status.git" openwrt/package/custom/luci-app-temp-status
+          git clone --depth 1 "$P/$H/fantastic-packages/fantastic-keyring.git" openwrt/package/custom/fantastic-keyring
 
       - name: Update and install feeds
         working-directory: openwrt
@@ -43,9 +44,9 @@ jobs:
           echo "" >> openwrt/target/linux/ramips/image/mt7621.mk
           cat target/linux/ramips/image/beeline_sbtplusspi.mk >> openwrt/target/linux/ramips/image/mt7621.mk
 
-          # Добавляем репозиторий fantastic-packages для 24.10 (mipsel_24kc)
-          mkdir -p openwrt/files/etc/opkg
-          FP_URL="https://github.io"
+          P="https:/"
+          FP_H="fantastic-packages.github.io"
+          FP_URL="$P/$FP_H/releases/24.10/packages/mipsel_24kc"
           cat << EOF > openwrt/files/etc/opkg/customfeeds.conf
           src/gz fantastic_packages_packages ${FP_URL}/packages
           src/gz fantastic_packages_luci ${FP_URL}/luci
@@ -79,7 +80,9 @@ jobs:
       - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |
-          wget -O .config "https://openwrt.org"
+          P="https:/"
+          DL_H="downloads.openwrt.org"
+          wget -O .config "$P/$DL_H/releases/24.10.8/targets/ramips/mt7621/config.buildinfo"
           # Отключаем сборку всех профилей разом, чтобы собирался только наш роутер
           sed -i 's/^CONFIG_TARGET_MULTI_PROFILE=y/# CONFIG_TARGET_MULTI_PROFILE is not set/' .config
           sed -i 's/^CONFIG_TARGET_ALL_PROFILES=y/# CONFIG_TARGET_ALL_PROFILES is not set/' .config

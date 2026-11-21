@@ -47,6 +47,7 @@ jobs:
           P="https:/"
           FP_H="fantastic-packages.github.io"
           FP_URL="$P/$FP_H/releases/24.10/packages/mipsel_24kc"
+          mkdir -p openwrt/files/etc/opkg
           cat << EOF > openwrt/files/etc/opkg/customfeeds.conf
           src/gz fantastic_packages_packages ${FP_URL}/packages
           src/gz fantastic_packages_luci ${FP_URL}/luci

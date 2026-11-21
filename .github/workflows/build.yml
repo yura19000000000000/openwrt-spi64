@@ -155,8 +155,6 @@ jobs:
           cat ../.config >> .config
 
 
-          cat ../.config >> .config
-
           echo "CONFIG_TARGET_ramips_mt7621_DEVICE_beeline_sbtplusspi=y" >> .config
 
           make defconfig

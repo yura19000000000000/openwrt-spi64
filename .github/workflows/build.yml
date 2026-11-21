@@ -57,7 +57,28 @@ jobs:
           https://${FP_HOST}/${FP_PATH}/luci/packages.adb
           https://${FP_HOST}/${FP_PATH}/special/packages.adb
           EOF
-          
+          mkdir -p openwrt/files/etc/uci-defaults
+          cat << 'EOF' > openwrt/files/etc/uci-defaults/99-wifi-setup
+          uci set wireless.radio0.disabled='0'
+          uci set wireless.radio0.country='RU'
+          uci set wireless.default_radio0.disabled='0'
+          uci set wireless.default_radio0.ssid='Tplink-190'
+          uci set wireless.default_radio0.encryption='psk2'
+          uci set wireless.default_radio0.key='460EE236'
+
+          uci set wireless.radio1.disabled='0'
+          uci set wireless.radio1.country='RU'
+          uci set wireless.default_radio1.disabled='0'
+          uci set wireless.default_radio1.ssid='Tplink-190 5G'
+          uci set wireless.default_radio1.encryption='psk2'
+          uci set wireless.default_radio1.key='460EE236'
+
+          uci commit wireless
+          wifi reload
+          exit 0
+          EOF
+          chmod +x openwrt/files/etc/uci-defaults/99-wifi-setup
+      
       - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |

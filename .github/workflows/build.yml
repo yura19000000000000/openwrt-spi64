@@ -147,7 +147,13 @@ jobs:
           wget -q -O .config "${CFG_URL}"
 
           sed -i -E 's/^(CONFIG_TARGET_ramips_mt7621_DEVICE_[^=]+)=y/# \1 is not set/' .config
-          sed -i '/luci-i18n-/d' .config
+          grep -oE '^CONFIG_PACKAGE_[^=]+' ../.config | while read -r pkg; do
+          sed -i "/^${pkg}=/d; /^# ${pkg} is not set/d" .config
+          done
+          sed -i '/CONFIG_PACKAGE_luci-base=/d' .config
+
+          cat ../.config >> .config
+
 
           cat ../.config >> .config
 

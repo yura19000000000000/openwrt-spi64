@@ -45,8 +45,8 @@ jobs:
           cat target/linux/ramips/image/beeline_sbtplusspi.mk >> openwrt/target/linux/ramips/image/mt7621.mk
 
           P="https:/"
-          FP_H="fantastic-packages.github.io"
-          FP_URL="$P/$FP_H/releases/24.10/packages/mipsel_24kc"
+          FP_H="raw.githubusercontent.com"
+          FP_URL="$P/$FP_H/fantastic-packages/releases/archive/24.10/packages/mipsel_24kc"
           mkdir -p openwrt/files/etc/opkg
           cat << EOF > openwrt/files/etc/opkg/customfeeds.conf
           src/gz fantastic_packages_packages ${FP_URL}/packages

@@ -33,7 +33,8 @@ jobs:
           git clone --depth 1 "https://${HOST}/${DEV}/luci-app-disks-info.git" openwrt/package/custom/luci-app-disks-info
           git clone --depth 1 "https://${HOST}/${DEV}/luci-app-cpu-status.git" openwrt/package/custom/luci-app-cpu-status
           git clone --depth 1 "https://${HOST}/${DEV}/luci-app-temp-status.git" openwrt/package/custom/luci-app-temp-status
-
+          git clone --depth 1 "https://${HOST}/fantastic-packages/fantastic-keyring.git" openwrt/package/custom/fantastic-keyring
+          
       - name: Update and install feeds
         working-directory: openwrt
         run: |
@@ -56,12 +57,7 @@ jobs:
           https://${FP_HOST}/${FP_PATH}/luci/packages.adb
           https://${FP_HOST}/${FP_PATH}/special/packages.adb
           EOF
-         
-          SUB="raw"
-          RAW_HOST="${SUB}.githubusercontent.com"
-          KEY_PATH="fantastic-packages/fantastic-keyring/main/files/etc/apk/keys/fantastic-packages.pem"
-          wget -qO openwrt/files/etc/apk/keys/fantastic-packages.pem "https://${RAW_HOST}/${KEY_PATH}" || true
-
+          
       - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |
@@ -69,6 +65,8 @@ jobs:
           CFG_PATH="releases/25.12.6/targets/ramips/mt7621/config.buildinfo"
           wget -O .config "https://${DL_HOST}/${CFG_PATH}"
           sed -i 's/^CONFIG_TARGET_ramips_mt7621_DEVICE_.*=y/# & is not set/' .config
+          sed -i '/luci-i18n-/d' .config
+          echo "CONFIG_PACKAGE_fantastic-keyring=y" >> .config
           cat ../.config >> .config
           make defconfig
 

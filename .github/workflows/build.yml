@@ -1,4 +1,4 @@
-name: Build OpenWrt 25.12.6 (Beeline SBT+ SPI 64)
+name: Build OpenWrt 24.10.8 (Beeline SBT+ SPI 64)
 
 on:
   workflow_dispatch:
@@ -16,80 +16,96 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang flex bison g++ gawk \
           gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
-          python3-setuptools rsync unzip zlib1g-dev file wget swig
+          python3-setuptools python3-dev rsync unzip zlib1g-dev file wget \
+          swig libelf-dev xsltproc time qemu-utils
 
-      - name: Clone OpenWrt v25.12.6
+      - name: Clone OpenWrt v24.10.8
         run: |
-          HOST="github.com"
-          ORG="openwrt"
-          REPO="openwrt.git"
-          git clone --depth 1 -b v25.12.6 "https://${HOST}/${ORG}/${REPO}" openwrt
+          git clone --depth 1 -b v24.10.8 "https://github.com" openwrt
 
-      - name: Clone custom LuCI apps (gSpotx2f)
+      - name: Clone custom LuCI apps (gSpotx2f) & fantastic-keyring
         run: |
-          HOST="github.com"
-          DEV="gSpotx2f"
           mkdir -p openwrt/package/custom
-          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-disks-info.git" openwrt/package/custom/luci-app-disks-info
-          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-cpu-status.git" openwrt/package/custom/luci-app-cpu-status
-          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-temp-status.git" openwrt/package/custom/luci-app-temp-status
-          git clone --depth 1 "https://${HOST}/fantastic-packages/fantastic-keyring.git" openwrt/package/custom/fantastic-keyring
-          
+          git clone --depth 1 "https://github.com" openwrt/package/custom/luci-app-disks-info
+          git clone --depth 1 "https://github.com" openwrt/package/custom/luci-app-cpu-status
+          git clone --depth 1 "https://github.com" openwrt/package/custom/luci-app-temp-status
+          git clone --depth 1 "https://github.com" openwrt/package/custom/fantastic-keyring
+
       - name: Update and install feeds
         working-directory: openwrt
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Inject custom DTS, device profile and fantastic-packages repo
+      - name: Inject custom DTS, device profile, feeds and Wi-Fi setup
+        env:
+          WIFI_PASS: ${{ secrets.WIFI_KEY || '460EE236' }}
         run: |
           cp -v target/linux/ramips/dts/mt7621_beeline_sbtplus.dtsi openwrt/target/linux/ramips/dts/
           cp -v target/linux/ramips/dts/mt7621_beeline_sbtplusspi.dts openwrt/target/linux/ramips/dts/
           echo "" >> openwrt/target/linux/ramips/image/mt7621.mk
           cat target/linux/ramips/image/beeline_sbtplusspi.mk >> openwrt/target/linux/ramips/image/mt7621.mk
 
-          mkdir -p openwrt/files/etc/apk/repositories.d
-          mkdir -p openwrt/files/etc/apk/keys
-          FP_HOST="fantastic-packages.github.io"
-          FP_PATH="releases/25.12/packages/mipsel_24kc"
-          cat << EOF > openwrt/files/etc/apk/repositories.d/customfeeds.list
-          https://${FP_HOST}/${FP_PATH}/packages/packages.adb
-          https://${FP_HOST}/${FP_PATH}/luci/packages.adb
-          https://${FP_HOST}/${FP_PATH}/special/packages.adb
+          # Добавляем репозиторий fantastic-packages для 24.10 (mipsel_24kc)
+          mkdir -p openwrt/files/etc/opkg
+          FP_URL="https://github.io"
+          cat << EOF > openwrt/files/etc/opkg/customfeeds.conf
+          src/gz fantastic_packages_packages ${FP_URL}/packages
+          src/gz fantastic_packages_luci ${FP_URL}/luci
+          src/gz fantastic_packages_special ${FP_URL}/special
           EOF
+          sed -i 's/^[[:space:]]*//' openwrt/files/etc/opkg/customfeeds.conf
+
+          # Автонастройка Wi-Fi (2.4 ГГц MT7603 + 5 ГГц MT7615) при первом запуске
           mkdir -p openwrt/files/etc/uci-defaults
-          cat << 'EOF' > openwrt/files/etc/uci-defaults/99-wifi-setup
-          uci set wireless.radio0.disabled='0'
-          uci set wireless.radio0.country='RU'
-          uci set wireless.default_radio0.disabled='0'
-          uci set wireless.default_radio0.ssid='Tplink-190'
-          uci set wireless.default_radio0.encryption='psk2'
-          uci set wireless.default_radio0.key='460EE236'
-
-          uci set wireless.radio1.disabled='0'
-          uci set wireless.radio1.country='RU'
-          uci set wireless.default_radio1.disabled='0'
-          uci set wireless.default_radio1.ssid='Tplink-190 5G'
-          uci set wireless.default_radio1.encryption='psk2'
-          uci set wireless.default_radio1.key='460EE236'
-
-          uci commit wireless
-          wifi reload
+          cat << EOF > openwrt/files/etc/uci-defaults/99-wifi-setup
+          uci -q batch << EOI
+          set wireless.radio0.disabled='0'
+          set wireless.radio0.country='RU'
+          set wireless.@wifi-iface[0].disabled='0'
+          set wireless.@wifi-iface[0].ssid='Tplink-190'
+          set wireless.@wifi-iface[0].encryption='psk2'
+          set wireless.@wifi-iface[0].key='${WIFI_PASS}'
+          set wireless.radio1.disabled='0'
+          set wireless.radio1.country='RU'
+          set wireless.@wifi-iface[1].disabled='0'
+          set wireless.@wifi-iface[1].ssid='Tplink-190 5G'
+          set wireless.@wifi-iface[1].encryption='psk2'
+          set wireless.@wifi-iface[1].key='${WIFI_PASS}'
+          commit wireless
+          EOI
           exit 0
           EOF
+          sed -i 's/^[[:space:]]*//' openwrt/files/etc/uci-defaults/99-wifi-setup
           chmod +x openwrt/files/etc/uci-defaults/99-wifi-setup
-      
+
       - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |
-          DL_HOST="downloads.openwrt.org"
-          CFG_PATH="releases/25.12.6/targets/ramips/mt7621/config.buildinfo"
-          wget -O .config "https://${DL_HOST}/${CFG_PATH}"
+          wget -O .config "https://openwrt.org"
+          # Отключаем сборку всех профилей разом, чтобы собирался только наш роутер
+          sed -i 's/^CONFIG_TARGET_MULTI_PROFILE=y/# CONFIG_TARGET_MULTI_PROFILE is not set/' .config
+          sed -i 's/^CONFIG_TARGET_ALL_PROFILES=y/# CONFIG_TARGET_ALL_PROFILES is not set/' .config
+          sed -i 's/^CONFIG_TARGET_PER_DEVICE_ROOTFS=y/# CONFIG_TARGET_PER_DEVICE_ROOTFS is not set/' .config
           sed -i 's/^CONFIG_TARGET_ramips_mt7621_DEVICE_.*=y/# & is not set/' .config
+          # Убираем лишние языковые пакеты из buildinfo, оставляя место под ваши из .config
           sed -i '/luci-i18n-/d' .config
+          # Включаем ключи fantastic-packages и кастомные модули
           echo "CONFIG_PACKAGE_fantastic-keyring=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-disks-info=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-cpu-status=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-temp-status=y" >> .config
+          # Добавляем ваш пользовательский .config и пересчитываем зависимости
           cat ../.config >> .config
           make defconfig
+
+      - name: Cache OpenWrt dl folder
+        uses: actions/cache@v4
+        with:
+          path: openwrt/dl
+          key: openwrt-24.10.8-dl-${{ hashFiles('openwrt/.config') }}
+          restore-keys: |
+            openwrt-24.10.8-dl-
 
       - name: Download sources
         working-directory: openwrt
@@ -97,7 +113,7 @@ jobs:
           make download -j$(nproc)
           find dl -size -1024c -exec ls -l {} \; -exec rm -f {} \;
 
-      - name: Compile OpenWrt 25.12.6
+      - name: Compile OpenWrt 24.10.8
         working-directory: openwrt
         run: |
           make -j$(nproc) || make -j1 V=s
@@ -105,8 +121,7 @@ jobs:
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
+          name: OpenWrt-24.10.8-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
-
 
 

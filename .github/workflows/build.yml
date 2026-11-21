@@ -144,7 +144,7 @@ jobs:
 
           VER_NOV="${OPENWRT_VERSION#v}"
           CFG_URL="https://${DOWNLOADS_HOST}/releases/${VER_NOV}/targets/ramips/mt7621/config.buildinfo"
-          wget -q --fail -O .config "${CFG_URL}"
+          wget -q -O .config "${CFG_URL}"
 
           sed -i -E 's/^(CONFIG_TARGET_ramips_mt7621_DEVICE_[^=]+)=y/# \1 is not set/' .config
           sed -i '/luci-i18n-/d' .config

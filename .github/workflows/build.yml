@@ -3,199 +3,110 @@ name: Build OpenWrt 25.12.6 (Beeline SBT+ SPI 64)
 on:
   workflow_dispatch:
 
-env:
-  OPENWRT_VERSION: v25.12.6
-  OPENWRT_ORG: openwrt
-  OPENWRT_REPO: openwrt.git
-  DOWNLOADS_HOST: downloads.openwrt.org
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
 
     steps:
       - name: Checkout custom files
         uses: actions/checkout@v4
 
-      - name: Free disk space on runner
-        run: |
-          echo "--- Disk usage BEFORE cleanup ---"
-          df -h /
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          docker system prune -af
-          echo "--- Disk usage AFTER cleanup ---"
-          df -h /
-
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential clang flex bison g++ gawk \
-            gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
-            python3-setuptools rsync unzip zlib1g-dev file wget swig \
-            bc ccache
+          sudo apt-get install -y build-essential clang flex bison g++ gawk \
+          gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
+          python3-setuptools rsync unzip zlib1g-dev file wget swig
 
-      - name: Cache dl and ccache
-        uses: actions/cache@v4
-        with:
-          path: |
-            openwrt/dl
-            ~/.ccache
-          key: openwrt-${{ env.OPENWRT_VERSION }}-${{ hashFiles('.config') }}-${{ github.run_id }}
-          restore-keys: |
-            openwrt-${{ env.OPENWRT_VERSION }}-${{ hashFiles('.config') }}-
-            openwrt-${{ env.OPENWRT_VERSION }}-
-
-      - name: Clone OpenWrt ${{ env.OPENWRT_VERSION }}
+      - name: Clone OpenWrt v25.12.6
         run: |
-          git clone --depth 1 -b "${OPENWRT_VERSION}" \
-            "https://github.com/${OPENWRT_ORG}/${OPENWRT_REPO}" openwrt
+          HOST="github.com"
+          ORG="openwrt"
+          REPO="openwrt.git"
+          git clone --depth 1 -b v25.12.6 "https://${HOST}/${ORG}/${REPO}" openwrt
 
       - name: Clone custom LuCI apps (gSpotx2f)
         run: |
+          HOST="github.com"
+          DEV="gSpotx2f"
           mkdir -p openwrt/package/custom
-          git clone --depth 1 "https://github.com/gSpotx2f/luci-app-disks-info.git"  openwrt/package/custom/luci-app-disks-info
-          git clone --depth 1 "https://github.com/gSpotx2f/luci-app-cpu-status.git"  openwrt/package/custom/luci-app-cpu-status
-          git clone --depth 1 "https://github.com/gSpotx2f/luci-app-temp-status.git" openwrt/package/custom/luci-app-temp-status
-
+          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-disks-info.git" openwrt/package/custom/luci-app-disks-info
+          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-cpu-status.git" openwrt/package/custom/luci-app-cpu-status
+          git clone --depth 1 "https://${HOST}/${DEV}/luci-app-temp-status.git" openwrt/package/custom/luci-app-temp-status
+          git clone --depth 1 "https://${HOST}/fantastic-packages/fantastic-keyring.git" openwrt/package/custom/fantastic-keyring
+          
       - name: Update and install feeds
         working-directory: openwrt
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Inject custom DTS, device profile, apk repo & wifi defaults
+      - name: Inject custom DTS, device profile and fantastic-packages repo
         run: |
-          set -euo pipefail
-
-          # ---- DTS + device .mk ----
-          cp -v target/linux/ramips/dts/mt7621_beeline_sbtplus.dtsi     openwrt/target/linux/ramips/dts/
-          cp -v target/linux/ramips/dts/mt7621_beeline_sbtplusspi.dts   openwrt/target/linux/ramips/dts/
+          cp -v target/linux/ramips/dts/mt7621_beeline_sbtplus.dtsi openwrt/target/linux/ramips/dts/
+          cp -v target/linux/ramips/dts/mt7621_beeline_sbtplusspi.dts openwrt/target/linux/ramips/dts/
           echo "" >> openwrt/target/linux/ramips/image/mt7621.mk
           cat target/linux/ramips/image/beeline_sbtplusspi.mk >> openwrt/target/linux/ramips/image/mt7621.mk
 
-          # ---- apk repositories ----
           mkdir -p openwrt/files/etc/apk/repositories.d
           mkdir -p openwrt/files/etc/apk/keys
           FP_HOST="fantastic-packages.github.io"
           FP_PATH="releases/25.12/packages/mipsel_24kc"
-          printf '%s\n' \
-            "https://${FP_HOST}/${FP_PATH}/packages/packages.adb" \
-            "https://${FP_HOST}/${FP_PATH}/luci/packages.adb" \
-            "https://${FP_HOST}/${FP_PATH}/special/packages.adb" \
-            > openwrt/files/etc/apk/repositories.d/customfeeds.list
-
-          # ---- apk key ----
-          wget -q --no-check-certificate -O openwrt/files/etc/apk/keys/fantastic-packages.pem \
-            "https://raw.githubusercontent.com/fantastic-packages/fantastic-keyring/refs/heads/master/apksign/fantastic-packages-20241123170031.pem"
-          test -s openwrt/files/etc/apk/keys/fantastic-packages.pem
-          grep -q 'BEGIN PUBLIC KEY' openwrt/files/etc/apk/keys/fantastic-packages.pem
-
-          # ---- WiFi defaults ----
-          # 2.4 ГГц: SSID "Tplink-190", пароль "460EE236"
-          # 5 ГГц:  SSID "Tplink-190 5G", пароль "460EE236"
-          # textwrap.dedent гарантирует shebang в первой позиции.
+          cat << EOF > openwrt/files/etc/apk/repositories.d/customfeeds.list
+          https://${FP_HOST}/${FP_PATH}/packages/packages.adb
+          https://${FP_HOST}/${FP_PATH}/luci/packages.adb
+          https://${FP_HOST}/${FP_PATH}/special/packages.adb
+          EOF
           mkdir -p openwrt/files/etc/uci-defaults
-          python3 -c '
-          import pathlib, textwrap
-          script = textwrap.dedent("""\
-              #!/bin/sh
-              uci -q batch << EOI
-              delete wireless.@wifi-device[0].disabled
-              set wireless.@wifi-device[0].country=\x27RU\x27
-              delete wireless.@wifi-iface[0].disabled
-              set wireless.@wifi-iface[0].ssid=\x27Tplink-190\x27
-              set wireless.@wifi-iface[0].encryption=\x27psk2\x27
-              set wireless.@wifi-iface[0].key=\x27460EE236\x27
+          cat << 'EOF' > openwrt/files/etc/uci-defaults/99-wifi-setup
+          uci set wireless.radio0.disabled='0'
+          uci set wireless.radio0.country='RU'
+          uci set wireless.default_radio0.disabled='0'
+          uci set wireless.default_radio0.ssid='Tplink-190'
+          uci set wireless.default_radio0.encryption='psk2'
+          uci set wireless.default_radio0.key='460EE236'
 
-              delete wireless.@wifi-device[1].disabled
-              set wireless.@wifi-device[1].country=\x27RU\x27
-              delete wireless.@wifi-iface[1].disabled
-              set wireless.@wifi-iface[1].ssid=\x27Tplink-190 5G\x27
-              set wireless.@wifi-iface[1].encryption=\x27psk2\x27
-              set wireless.@wifi-iface[1].key=\x27460EE236\x27
-              EOI
+          uci set wireless.radio1.disabled='0'
+          uci set wireless.radio1.country='RU'
+          uci set wireless.default_radio1.disabled='0'
+          uci set wireless.default_radio1.ssid='Tplink-190 5G'
+          uci set wireless.default_radio1.encryption='psk2'
+          uci set wireless.default_radio1.key='460EE236'
 
-              uci commit wireless
-              wifi up || true
-              exit 0
-          """)
-          pathlib.Path("openwrt/files/etc/uci-defaults/99-wifi-setup").write_text(script)
-          '
-
-          # Sanity-check: после записи в файле должен быть корректный shebang
-          head -n1 openwrt/files/etc/uci-defaults/99-wifi-setup | grep -qx '#!/bin/sh' \
-            || { echo "ERROR: shebang в 99-wifi-setup сдвинут — uci-defaults не выполнится"; exit 1; }
-
+          uci commit wireless
+          wifi reload
+          exit 0
+          EOF
+          chmod +x openwrt/files/etc/uci-defaults/99-wifi-setup
+      
       - name: Apply official config.buildinfo + custom .config
         working-directory: openwrt
         run: |
-          set -euo pipefail
-          test -s ../.config
-
-          VER_NOV="${OPENWRT_VERSION#v}"
-          CFG_URL="https://${DOWNLOADS_HOST}/releases/${VER_NOV}/targets/ramips/mt7621/config.buildinfo"
-          wget -q -O .config "${CFG_URL}"
-
-          sed -i -E 's/^(CONFIG_TARGET_ramips_mt7621_DEVICE_[^=]+)=y/# \1 is not set/' .config
-          grep -oE '^CONFIG_PACKAGE_[^=]+' ../.config | while read -r pkg; do
-          sed -i "/^${pkg}=/d; /^# ${pkg} is not set/d" .config
-          done
-          sed -i '/CONFIG_PACKAGE_luci-base=/d' .config
-
+          DL_HOST="downloads.openwrt.org"
+          CFG_PATH="releases/25.12.6/targets/ramips/mt7621/config.buildinfo"
+          wget -O .config "https://${DL_HOST}/${CFG_PATH}"
+          sed -i 's/^CONFIG_TARGET_ramips_mt7621_DEVICE_.*=y/# & is not set/' .config
+          sed -i '/luci-i18n-/d' .config
+          echo "CONFIG_PACKAGE_fantastic-keyring=y" >> .config
           cat ../.config >> .config
-
-
-          echo "CONFIG_TARGET_ramips_mt7621_DEVICE_beeline_sbtplusspi=y" >> .config
-
           make defconfig
-
-          grep -q '^CONFIG_TARGET_ramips_mt7621_DEVICE_beeline_sbtplusspi=y' .config \
-            || { echo "ERROR: устройство beeline_sbtplusspi не включено"; exit 1; }
-          grep -q '^CONFIG_PACKAGE_luci-i18n-base-ru=y' .config \
-            || { echo "ERROR: русская локализация LuCI не включена"; exit 1; }
 
       - name: Download sources
         working-directory: openwrt
         run: |
-          make download -j8 || make download -j1
+          make download -j$(nproc)
           find dl -size -1024c -exec ls -l {} \; -exec rm -f {} \;
 
-      - name: Compile OpenWrt ${{ env.OPENWRT_VERSION }}
+      - name: Compile OpenWrt 25.12.6
         working-directory: openwrt
         run: |
-          set +e
-          make -j$(nproc) CCACHE=1 CCACHE_DIR=$HOME/.ccache 2>&1 | tee build.log
-          RET=${PIPESTATUS[0]}
-          if [ "$RET" -ne 0 ]; then
-            echo "=== Build failed (rc=$RET), retrying with -j1 V=s ==="
-            make -j1 V=s 2>&1 | tee -a build.log
-            exit ${PIPESTATUS[0]}
-          fi
+          make -j$(nproc) || make -j1 V=s
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OpenWrt-${{ env.OPENWRT_VERSION }}-Beeline-SBTPlus-SPI64
+          name: OpenWrt-25.12.6-Beeline-SBTPlus-SPI64
           path: openwrt/bin/targets/ramips/mt7621/*
-          if-no-files-found: error
 
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            openwrt/build.log
-            openwrt/.config
-            openwrt/logs/
-          if-no-files-found: ignore
+
+

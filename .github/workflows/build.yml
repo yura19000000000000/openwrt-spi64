@@ -44,10 +44,15 @@ jobs:
           echo "" >> openwrt/target/linux/ramips/image/mt7621.mk
           cat target/linux/ramips/image/beeline_sbtplusspi.mk >> openwrt/target/linux/ramips/image/mt7621.mk
 
+          # Скачиваем рабочий публичный ключ fantastic-packages прямо в прошивку
           P="https:/"
-          FP_H="raw.githubusercontent.com"
-          FP_URL="$P/$FP_H/fantastic-packages/releases/archive/24.10/packages/mipsel_24kc"
-          mkdir -p openwrt/files/etc/opkg
+          FP_H="fantastic-packages.github.io"
+          KEYID="53ff2b6672243d28"
+          mkdir -p openwrt/files/etc/opkg/keys
+          wget -O "openwrt/files/etc/opkg/keys/${KEYID}" "$P/$FP_H/packages/releases/24.10/${KEYID}.pub"
+
+          # Прописываем актуальный рабочий адрес репозитория для 24.10 (mipsel_24kc)
+          FP_URL="$P/$FP_H/packages/releases/24.10/packages/mipsel_24kc"
           cat << EOF > openwrt/files/etc/opkg/customfeeds.conf
           src/gz fantastic_packages_packages ${FP_URL}/packages
           src/gz fantastic_packages_luci ${FP_URL}/luci

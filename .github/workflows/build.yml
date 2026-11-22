@@ -96,7 +96,6 @@ jobs:
           # Убираем лишние языковые пакеты из buildinfo, оставляя место под ваши из .config
           sed -i '/luci-i18n-/d' .config
           # Включаем ключи fantastic-packages и кастомные модули
-          echo "CONFIG_PACKAGE_fantastic-keyring=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-disks-info=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-cpu-status=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-temp-status=y" >> .config
